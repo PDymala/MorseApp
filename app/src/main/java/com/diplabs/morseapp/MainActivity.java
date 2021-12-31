@@ -1,28 +1,19 @@
 package com.diplabs.morseapp;
 
-import androidx.appcompat.app.AppCompatActivity;
-
-import android.annotation.SuppressLint;
 import android.os.Bundle;
-import android.util.Log;
-import android.view.GestureDetector;
-import android.view.MotionEvent;
-import android.view.View;
-import android.widget.Button;
-import android.widget.EditText;
-import android.widget.TextView;
 
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.fragment.app.Fragment;
+
+import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.otaliastudios.cameraview.CameraView;
 import com.otaliastudios.cameraview.controls.Audio;
 import com.otaliastudios.cameraview.controls.Engine;
-import com.otaliastudios.cameraview.controls.Flash;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements SettingsFragment.OnDataPassSettings, TextFragment.OnDataPassTextTranslated{
     private static final String TAG = "morse";
     private CameraView cameraView;
-    private Button buttonOn;
-    private EditText editTextInput;
-    private Thread thread;
+     private Thread thread;
     private int timeUnit = 300;
 
 
@@ -37,12 +28,52 @@ public class MainActivity extends AppCompatActivity {
 
 
     private void initalizeUI() {
-        buttonOn = findViewById(R.id.buttonOn);
 
-        editTextInput = findViewById(R.id.editTextInput);
+
+
+
+        BottomNavigationView bottomNavigationView = findViewById(R.id.bottom_navigation);
+        bottomNavigationView.setOnNavigationItemSelectedListener(navigationItemSelectedListener);
+        getSupportFragmentManager().beginTransaction()
+                .replace(R.id.fragment_container, new TextFragment())
+
+                .commit();
+
+
 
     }
 
+    private BottomNavigationView.OnNavigationItemSelectedListener navigationItemSelectedListener =
+            item -> {
+                Fragment selectedFragment = null;
+
+                switch (item.getItemId()){
+//                    case R.id.nav_home:
+//                    selectedFragment = new HomeFragment();
+//                        getSupportFragmentManager().beginTransaction().replace(R.id.fragment_container,
+//                                selectedFragment).commit();
+//                    break;
+                    case R.id.nav_text:
+                    selectedFragment = new TextFragment();
+                        getSupportFragmentManager().beginTransaction().replace(R.id.fragment_container,
+                                selectedFragment).commit();
+                    break;
+
+                    case R.id.nav_settings:
+
+                        Bundle bundle = new Bundle();
+                        bundle.putInt("timeUnit", timeUnit);
+
+                   selectedFragment = new SettingsFragment();
+                        selectedFragment.setArguments(bundle);
+                        getSupportFragmentManager().beginTransaction()
+                                .replace(R.id.fragment_container, selectedFragment)
+                                .commit();
+                     break;
+                }
+
+            return true;
+            };
 
     private void initalizeCamera() {
         cameraView = new CameraView(this);
@@ -75,37 +106,59 @@ public class MainActivity extends AppCompatActivity {
     CustomMorseEventHandler customMorseEventHandler;
 
 
-    public void toggle(View view) {
-        toggle();
+
+
+    public void toggle(String inputText) {
+
+        if (!isRunning) {
+            isRunning = true;
+            thread = new Thread(() -> {
+                customMorseEventHandler = new CustomMorseEventHandler(timeUnit, cameraView);
+                customMorseEventHandler.translate(inputText);
+                if (isRunning) runOnUiThread(() -> toggle(" "));
+            });
+            thread.start();
+
+
+
+
+        } else {
+            customMorseEventHandler.running = false;
+            thread.interrupt();
+            isRunning = false;
+
+        }
     }
 
-    public void toggle() {
+    public void letKnowFragmentsThatFinished(){
 
-            if (!isRunning) {
-                isRunning = true;
-                thread = new Thread(() -> {
-                    customMorseEventHandler = new CustomMorseEventHandler(timeUnit, cameraView);
-                    customMorseEventHandler.translate(editTextInput.getText().toString());
-                    if (isRunning) runOnUiThread(() -> toggle()); });
-                thread.start();
+    }
 
 
-                buttonOn.setText("OFF");
-                editTextInput.setEnabled(false);
+//    @Override
+//    public void onDataPassHome(String translatedData) {
+//        toggle(translatedData);
+//    }
 
-            } else {
-                customMorseEventHandler.running = false;
-                thread.interrupt();
-                isRunning = false;
+    @Override
+    public void onDataPassSettings(int timeUnit) {
+        this.timeUnit = timeUnit;
+    }
 
-                buttonOn.setText("ON");
-                editTextInput.setEnabled(true);
+    @Override
+    public void onDataPassText(String translatedData) {
+        toggle(translatedData);
+    }
 
-            }
-        }
-
-
-
+    //added in home
+//    @Override
+//    public void onDataAccept(String translatedData) {
+//        dataFromActivityToFragment.sendData(translatedData);
+//    }
+    DataFromActivityToFragment dataFromActivityToFragment;
+    public interface DataFromActivityToFragment {
+        void sendData(String data);
+    }
 
 
 
